@@ -313,7 +313,6 @@
         const last = candles[candles.length - 1];
         const prev = candles[candles.length - 2];
 
-        // HTF Bias Sederhana
         if (last.close > prev.close) {
             document.getElementById('htf-bias').innerText = 'BULLISH 🟢';
             document.getElementById('htf-bias').style.color = '#089981';
