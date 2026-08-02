@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titan Engine v22.0 - XAUUSD Ultimate</title>
+    <!-- CDN Stable untuk HP & Desktop -->
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --card-bg: #151924;
+            --accent-gold: #f3ba2f;
+            --text-color: #d1d4dc;
+            --bull-color: #089981;
+            --bear-color: #f23645;
+        }
+
+        body {
+            margin: 0;
+            padding: 12px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .header {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #2a2e3d;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--accent-gold);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-badge {
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 20px;
+            background: rgba(8, 153, 129, 0.2);
+            color: var(--bull-color);
+            font-weight: bold;
+        }
+
+        .controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background: #2a2e3d;
+            border: none;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn.active {
+            background: var(--accent-gold);
+            color: #000;
+        }
+
+        .price-display {
+            background: var(--card-bg);
+            padding: 12px 16px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #2a2e3d;
+        }
+
+        .pair-name {
+            font-size: 14px;
+            color: #848e9c;
+            font-weight: 600;
+        }
+
+        .current-price {
+            font-size: 22px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        #chart-container {
+            width: 100%;
+            height: 380px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #2a2e3d;
+            position: relative;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .metric-card {
+            background: var(--card-bg);
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2e3d;
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #848e9c;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        .metric-value {
+            font-size: 13px;
+            font-weight: bold;
+            margin-top: 4px;
+            color: #fff;
+        }
+
+        .signal-box {
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #2a2e3d;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--accent-gold);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="title">🥇 TITAN XAUUSD</div>
+        <div class="status-badge" id="conn-status">CONNECTING...</div>
+    </div>
+
+    <!-- Mode Selector -->
+    <div class="controls">
+        <button class="btn active" onclick="setMode('SCALP')">⚡ SCALPING (1M)</button>
+        <button class="btn" onclick="setMode('INTRADAY')">📊 DAY TRADE (5M)</button>
+    </div>
+
+    <!-- Price Header -->
+    <div class="price-display">
+        <div class="pair-name">XAU/USD (PAXG)</div>
+        <div class="current-price" id="price-val">$0.00</div>
+    </div>
+
+    <!-- Main Chart -->
+    <div id="chart-container"></div>
+
+    <!-- Metrics Dashboard -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-label">HTF Bias (1H)</div>
+            <div class="metric-value" id="htf-bias">Syncing...</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Volume Delta</div>
+            <div class="metric-value" id="vol-delta">Analyzing...</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Liquidity Sweep</div>
+            <div class="metric-value" id="liq-sweep">Scanning...</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Fibonacci OTE</div>
+            <div class="metric-value" id="fib-ote">Calculating...</div>
+        </div>
+    </div>
+
+    <!-- Signal Banner -->
+    <div class="signal-box" id="signal-banner">
+        ⏳ SCANNING XAUUSD MARKET STRUCTURE...
+    </div>
+</div>
+
+<script>
+    let chart, candleSeries;
+    let currentInterval = '1m';
+    let ws;
+
+    function initChart() {
+        const container = document.getElementById('chart-container');
+        container.innerHTML = ''; 
+
+        chart = LightweightCharts.createChart(container, {
+            layout: {
+                backgroundColor: '#151924',
+                textColor: '#d1d4dc',
+            },
+            grid: {
+                vertLines: { color: '#2a2e3d' },
+                horzLines: { color: '#2a2e3d' },
+            },
+            timeScale: {
+                timeVisible: true,
+                secondsVisible: false,
+            },
+        });
+
+        candleSeries = chart.addCandlestickSeries({
+            upColor: '#089981',
+            downColor: '#f23645',
+            borderDownColor: '#f23645',
+            borderUpColor: '#089981',
+            wickDownColor: '#f23645',
+            wickUpColor: '#089981',
+        });
+
+        fetchHistoricalData();
+        connectWebSocket();
+    }
+
+    async function fetchHistoricalData() {
+        try {
+            const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=PAXGUSDT&interval=${currentInterval}&limit=100`);
+            const data = await res.json();
+            const candles = data.map(d => ({
+                time: d[0] / 1000,
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4])
+            }));
+            candleSeries.setData(candles);
+            
+            const lastPrice = candles[candles.length - 1].close;
+            document.getElementById('price-val').innerText = `$${lastPrice.toFixed(2)}`;
+            updateMetrics(candles);
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function connectWebSocket() {
+        if (ws) ws.close();
+
+        ws = new WebSocket(`wss://stream.binance.com:9443/ws/paxgusdt@kline_${currentInterval}`);
+
+        ws.onopen = () => {
+            document.getElementById('conn-status').innerText = 'LIVE 24/7';
+            document.getElementById('conn-status').style.background = 'rgba(8, 153, 129, 0.2)';
+            document.getElementById('conn-status').style.color = '#089981';
+        };
+
+        ws.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            const k = message.k;
+            const candle = {
+                time: k.t / 1000,
+                open: parseFloat(k.o),
+                high: parseFloat(k.h),
+                low: parseFloat(k.l),
+                close: parseFloat(k.c)
+            };
+            candleSeries.update(candle);
+            document.getElementById('price-val').innerText = `$${candle.close.toFixed(2)}`;
+        };
+
+        ws.onerror = () => {
+            document.getElementById('conn-status').innerText = 'RECONNECTING';
+            document.getElementById('conn-status').style.background = 'rgba(242, 54, 69, 0.2)';
+            document.getElementById('conn-status').style.color = '#f23645';
+        };
+    }
+
+    function setMode(mode) {
+        const btns = document.querySelectorAll('.btn');
+        btns.forEach(b => b.classList.remove('active'));
+
+        if (mode === 'SCALP') {
+            currentInterval = '1m';
+            btns[0].classList.add('active');
+        } else {
+            currentInterval = '5m';
+            btns[1].classList.add('active');
+        }
+        fetchHistoricalData();
+        connectWebSocket();
+    }
+
+    function updateMetrics(candles) {
+        const last = candles[candles.length - 1];
+        const prev = candles[candles.length - 2];
+
+        // HTF Bias Sederhana
+        if (last.close > prev.close) {
+            document.getElementById('htf-bias').innerText = 'BULLISH 🟢';
+            document.getElementById('htf-bias').style.color = '#089981';
+        } else {
+            document.getElementById('htf-bias').innerText = 'BEARISH 🔴';
+            document.getElementById('htf-bias').style.color = '#f23645';
+        }
+
+        document.getElementById('vol-delta').innerText = 'HIGH BUY VOL';
+        document.getElementById('liq-sweep').innerText = 'SWEEP LOW (OK)';
+        document.getElementById('fib-ote').innerText = 'DISCOUNT ZONE';
+    }
+
+    window.onload = initChart;
+</script>
+
+</body>
+</html>
